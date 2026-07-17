@@ -1,0 +1,413 @@
+# =============================================================================
+# NSLT Configuration — Neural-State Liquid Transformer
+# Replaces dense transformers with O(1) SSM compression + liquid ODE routing
+# + parallel latent sandbox reasoning + ultra-sparse (1%) output.
+# =============================================================================
+project:
+  name: NSLT-Zero
+  seed: 42
+  deterministic: true
+
+# ── Model Architecture ──────────────────────────────────────────────────────
+# Neural-State Liquid Transformer (NSLT) — a non-Transformer architecture.
+# Layer 1: SSM Neural Compression (O(1) memory via structured state-space)
+# Layer 2: LTC Routing (continuous ODE with liquid time-constants)
+# Layer 3: Latent Sandbox (energy-based parallel vector reasoning)
+# Layer 4: Ultra-Sparse Output Synthesizer (top-1% vocabulary gating)
+model:
+  name: NSLT-Zero
+  dtype: bfloat16
+  device: auto
+  train_from_scratch: true
+  load_in_8bit: false
+  load_in_4bit: false
+  architecture:
+    model_type: nslt
+    vocab_size: 128000
+    hidden_size: 10240          # d_model — embedding dimension (scaled for 4x A100 80GB)
+
+    # NSLT-specific parameters (read by schema.ModelArchitectureConfig.nslt)
+    nslt:
+      d_state: 4096
+      d_hidden: 10240
+      n_ssm_layers: 12          # Stacked SSM blocks for hierarchical compression
+      n_ode_steps: 8            # RK4 integration steps in LTC layer
+      solver: rk4
+      n_trajectories: 8         # K parallel trajectories in Latent Sandbox
+      n_sim_steps: 16           # Energy descent steps per forward pass
+      use_efficient_sandbox: true
+      sparsity_pct: 1.0         # Top-1% vocabulary per token
+
+    # Position encoding — RoPE with 10M theta for long context
+    max_position_embeddings: 16384
+    rope_theta: 10000000.0
+    rope_scaling:
+      type: yarn
+      factor: 16.0
+      target_max_length: 262144
+      original_max_position_embeddings: 16384
+
+# ── Training ────────────────────────────────────────────────────────────────
+# Pure training: Pretrain → SFT → Instruction Tuning (no eval, no alignment, no safety)
+training:
+  max_seq_length: 4096
+  response_only_loss: true
+  ignore_data_skip: true
+  save_steps: 1000
+  save_total_limit: 5
+  eval_strategy: "no"
+  logging_steps: 10
+
+  # Stage 1: Pretraining (500K steps, cosine LR, LR=2e-4)
+  # 4 GPUs: per_device=2, gas=8 → effective batch = 2 × 4 × 8 = 64
+  pretrain:
+    enabled: true
+    learning_rate: 2e-4
+    lr_scheduler_type: cosine
+    warmup_steps: 5000
+    weight_decay: 0.1
+    batch_size: 2
+    gradient_accumulation_steps: 8
+    max_steps: 500000
+    optimizer: adamw_fused
+    data_mix:
+      code: 0.3
+      web_text: 0.3
+      books: 0.1
+      math: 0.1
+      science: 0.1
+      other: 0.1
+
+  # Stage 2: Supervised Fine-Tuning (50K steps, LR=5e-6)
+  # 4 GPUs: per_device=1, gas=4 → effective batch = 1 × 4 × 4 = 16
+  sft:
+    enabled: true
+    learning_rate: 5e-6
+    lr_scheduler_type: cosine
+    warmup_steps: 500
+    weight_decay: 0.05
+    batch_size: 1
+    gradient_accumulation_steps: 4
+    max_steps: 50000
+    optimizer: adamw_fused
+    data_mix:
+      sft_instructions: 0.5
+      conversations: 0.3
+      code_tasks: 0.2
+
+  # Stage 3: Instruction Tuning (20K steps)
+  # 4 GPUs: per_device=1, gas=4 → effective batch = 1 × 4 × 4 = 16
+  instruction_tuning:
+    enabled: true
+    learning_rate: 1e-5
+    batch_size: 1
+    gradient_accumulation_steps: 4
+    max_steps: 20000
+    warmup_steps: 200
+
+  # Alignment & Safety disabled — pure training only
+  alignment:
+    enabled: false
+  safety:
+    enabled: false
+
+# ── Distributed Training (FSDP) ─────────────────────────────────────────────
+# 4x A100 80GB → use FSDP full shard (no offload needed)
+distributed:
+  strategy: fsdp
+  fsdp:
+    enabled: true
+    sharding_strategy: full_shard
+    transformer_layer_cls: NSLTModel
+    backward_prefetch: backward_pre
+    forward_prefetch: true
+    activation_checkpointing: true
+    use_orig_params: true
+    sync_module_states: true
+    limit_all_gathers: true
+    mixed_precision: bf16
+
+# ── Data ────────────────────────────────────────────────────────────────────
+data:
+  cache_dir: ./hf_cache
+  streaming: true
+  max_cache_gb: 200
+  num_download_workers: 16
+
+  quality:
+    min_length: 30
+    max_length: 500000
+    deduplication:
+      enabled: true
+      method: minhash
+      threshold: 0.85
+    contamination:
+      enabled: true
+      benchmarks: [human_eval, mbpp, mmlu, gsm8k, arc, hellaswag, truthfulqa]
+    quality_scoring:
+      enabled: true
+      method: heuristic
+    language_detection:
+      enabled: true
+    toxicity_filtering:
+      enabled: true
+
+  curriculum:
+    enabled: false
+    stages:
+      - name: core
+        weight: 0.2
+      - name: ai
+        weight: 0.4
+      - name: agentic
+        weight: 0.4
+
+  # ── Datasets ──────────────────────────────────────────────────────────────
+  datasets:
+    # ── Code Instruction & SFT ──────────────────────────────────────────
+    - path: iamtarun/python_code_instructions_18k_alpaca
+      max_samples: 18000
+      category: code
+    - path: sahil2801/CodeAlpaca-20k
+      max_samples: 20000
+      category: code
+    - path: nickrosh/Evol-Instruct-Code-80k-v1
+      max_samples: 80000
+      category: code
+    - path: TokenBender/code_instructions_122k_alpaca_style
+      max_samples: 122000
+      category: code
+    - path: ise-uiuc/Magicoder-OSS-Instruct-75K
+      max_samples: 120000
+      category: code
+    - path: ise-uiuc/Magicoder-Evol-Instruct-110K
+      max_samples: 110000
+      category: code
+    - path: m-a-p/CodeFeedback-Filtered-Instruction
+      max_samples: 60000
+      category: code
+
+    - path: deepmind/code_contests
+      max_samples: 50000
+      category: code
+    - path: glaiveai/generated-code-tasks
+      max_samples: 30000
+      category: code
+
+    # ── Raw Code (Language Modeling) ────────────────────────────────────
+    - path: codeparrot/codeparrot-clean
+      max_samples: 100000
+      category: code
+    - path: bigcode/starcoderdata
+      data_dir: python
+      max_samples: 100000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/python
+      max_samples: 25000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/javascript
+      max_samples: 25000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/typescript
+      max_samples: 25000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/rust
+      max_samples: 15000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/go
+      max_samples: 15000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/java
+      max_samples: 15000
+      category: code
+    - path: bigcode/the-stack-smol-xl
+      data_dir: data/c++
+      max_samples: 15000
+      category: code
+    - path: codeparrot/codeparrot-clean-java
+      max_samples: 50000
+      category: code
+
+    # ── Math & Reasoning ────────────────────────────────────────────────
+    - path: gsm8k
+      name: main
+      max_samples: 8000
+      category: math
+    - path: competition_math
+      max_samples: 7500
+      category: math
+    - path: math_qa
+      max_samples: 15000
+      category: math
+    - path: aqua_rat
+      max_samples: 10000
+      category: math
+    - path: Aire/CoT-Collection
+      max_samples: 30000
+      category: math
+
+    # ── Science & Knowledge ─────────────────────────────────────────────
+    - path: lukaemon/mmlu
+      max_samples: 14000
+      category: science
+    - path: sciq
+      max_samples: 10000
+      category: science
+    - path: pubmed_qa
+      name: pqa_artificial
+      max_samples: 5000
+      category: science
+    - path: wikisql
+      max_samples: 15000
+      category: code
+    - path: wiki_qa
+      max_samples: 10000
+      category: science
+
+    # ── Web Text & Books ────────────────────────────────────────────────
+    - path: c4
+      name: en
+      max_samples: 200000
+      category: web_text
+    - path: bookcorpus
+      max_samples: 50000
+      category: books
+    - path: pg19
+      max_samples: 20000
+      category: books
+    - path: wikitext
+      name: wikitext-103-v1
+      max_samples: 100000
+      category: web_text
+
+    # ── Conversations & Instruction Following ───────────────────────────
+    - path: HuggingFaceH4/ultrachat_200k
+      split: train_sft
+      max_samples: 30000
+      category: conversations
+    - path: HuggingFaceH4/ultrafeedback_binarized
+      split: train_sft
+      max_samples: 30000
+      category: conversations
+    - path: allenai/tulu-v2-sft-mixture
+      max_samples: 30000
+      category: conversations
+    - path: HuggingFaceH4/no_robots
+      max_samples: 9500
+      category: conversations
+    - path: OpenAssistant/oasst1
+      max_samples: 20000
+      category: conversations
+    - path: anon8231489123/ShareGPT_Vicuna_unfiltered
+      max_samples: 30000
+      category: conversations
+
+    # ── SE, Debugging, Code Review ──────────────────────────────────────
+    - path: bigcode/commitpack
+      max_samples: 200000
+      category: code
+    - path: mbpp
+      max_samples: 500
+      category: code
+    - path: openai_humaneval
+      max_samples: 164
+      category: code
+    - path: code-review-dataset
+      max_samples: 15000
+      category: code
+
+    # ── Tool Use & Function Calling ─────────────────────────────────────
+    - path: glaiveai/glaive-function-calling-v2
+      max_samples: 20000
+      category: tool_use
+    - path: microsoft/orca-math-word-problems-200k
+      max_samples: 30000
+      category: math
+
+    # ── Preference & Alignment Data ─────────────────────────────────────
+    - path: argilla/dpo-mix-7k
+      max_samples: 7000
+      category: preference
+    - path: Intel/orca_dpo_pairs
+      max_samples: 13000
+      category: preference
+    - path: jondurbin/truthy-dpo-v0.1
+      max_samples: 10000
+      category: preference
+    - path: m-a-p/CodeFeedback-Filtered-Preference
+      max_samples: 20000
+      category: preference
+
+    # ── Q&A & Knowledge ─────────────────────────────────────────────────
+    - path: natural_questions
+      max_samples: 20000
+      category: science
+    - path: trivia_qa
+      name: rc
+      max_samples: 15000
+      category: science
+    - path: hotpot_qa
+      name: distractor
+      max_samples: 10000
+      category: science
+    - path: squad
+      max_samples: 20000
+      category: science
+
+    # ── Code Translation & Multi-lingual ────────────────────────────────
+    - path: code_x_glue_ct_code_to_code
+      name: go
+      max_samples: 10000
+      category: code
+    - path: code_x_glue_cc_code_to_text
+      max_samples: 15000
+      category: code
+    - path: code_x_glue_cc_code_docstring
+      max_samples: 15000
+      category: code
+    - path: code_search_net
+      max_samples: 50000
+      category: code
+
+    # ── Documentation, Stack Overflow ───────────────────────────────────
+    - path: code_x_glue_ct_nl_code
+      name: go
+      max_samples: 10000
+      category: code
+    - path: StackExchange/stackoverflow
+      max_samples: 30000
+      category: conversations
+    - path: Cohere/arxiv_summarization
+      max_samples: 5000
+      category: science
+
+# ── Tokenizer ───────────────────────────────────────────────────────────────
+tokenizer:
+  source: huggingface
+  huggingface_model: Xenova/claude-tokenizer
+  vocab_size: 128000
+  max_samples: 100000
+  type: bpe
+  force: false
+  add_prefix_space: false
+  add_bos_token: true
+  add_eos_token: true
+
+# ── Output & Logging ────────────────────────────────────────────────────────
+output:
+  model_dir: ./models/fable5
+  data_dir: ./data
+  checkpoint_dir: ./models/fable5/checkpoints
+  log_dir: ./logs
+  experiment_tracking:
+    enabled: false
+    provider: none
+    project: fable-5
+
+
