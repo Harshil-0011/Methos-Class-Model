@@ -356,14 +356,14 @@ tokenizer:
 
 # ── Output ──
 output:
-  model_dir: ./models/fable5
+  model_dir: ./models/methos
   data_dir: ./data
-  checkpoint_dir: ./models/fable5/checkpoints
+  checkpoint_dir: ./models/methos/checkpoints
   log_dir: ./logs
   experiment_tracking:
     enabled: false
     provider: none                  # "wandb" | "mlflow" | "tensorboard" | "none"
-    project: fable-5
+    project: methos-class-model
 
 # ── Generation defaults ──
 generation:
@@ -440,7 +440,7 @@ Defined in `main.py`. Uses `argparse` with subparsers. All commands support `-h`
 | Flag | Type | Default | Description |
 |---|---|---|---|
 | `--prompt` | `str` | `None` | Input prompt. Reads from stdin if omitted. |
-| `--checkpoint` | `str` | `models/fable5` | Path to model directory |
+| `--checkpoint` | `str` | `models/methos` | Path to model directory |
 | `--tokenizer` | `str` | `models/tokenizer` | Path to tokenizer directory |
 | `--max-new-tokens` | `int` | `1024` | Max tokens to generate |
 | `--temperature` | `float` | `0.7` | Sampling temperature; 0 = greedy |
@@ -478,7 +478,7 @@ Defined in `main.py`. Uses `argparse` with subparsers. All commands support `-h`
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--checkpoint` | `str` | `models/fable5` | Model path |
+| `--checkpoint` | `str` | `models/methos` | Model path |
 | `--tokenizer` | `str` | `models/tokenizer` | Tokenizer path |
 | `--benchmarks` | `str` | `None` | Comma-separated names |
 
@@ -602,8 +602,8 @@ non-repeated layers of different types, so per-layer wrapping isn't meaningful.
 
 - **Interval:** `training.save_steps` (default 1000)
 - **Retention:** `training.save_total_limit` (default 5)
-- **Per-stage directories:** `models/fable5/<stage_name>/`
-- **Auto-resume:** Pipeline checks `models/fable5/checkpoints` for latest.
+- **Per-stage directories:** `models/methos/<stage_name>/`
+- **Auto-resume:** Pipeline checks `models/methos/checkpoints` for latest.
   Compares architecture spec between saved `config.json` and current config.
   On mismatch → log warning, create fresh model.
 - **Save format:** `model.save_pretrained(dir, safe_serialization=True)`

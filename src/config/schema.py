@@ -87,7 +87,7 @@ class ModelArchitectureConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    name: str = "Fable-5-Pro"
+    name: str = "Methos Class Model"
     dtype: Literal["bfloat16", "float16", "float32"] = "bfloat16"
     device: str = "auto"
     train_from_scratch: bool = True
@@ -353,13 +353,13 @@ class AlignmentConfig(BaseModel):
 class ExperimentTrackingConfig(BaseModel):
     enabled: bool = False
     provider: Literal["wandb", "mlflow", "tensorboard", "none"] = "none"
-    project: str = "fable-5"
+    project: str = "methos-class-model"
 
 
 class OutputConfig(BaseModel):
-    model_dir: str = "./models/fable5"
+    model_dir: str = "./models/methos"
     data_dir: str = "./data"
-    checkpoint_dir: str = "./models/fable5/checkpoints"
+    checkpoint_dir: str = "./models/methos/checkpoints"
     log_dir: str = "./logs"
     experiment_tracking: ExperimentTrackingConfig = Field(default_factory=ExperimentTrackingConfig)
 

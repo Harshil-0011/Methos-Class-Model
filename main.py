@@ -195,13 +195,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_full.add_argument("--fresh-start", action="store_true", help="Ignore existing checkpoints")
     p_full.add_argument("--config", default="config.yaml")
 
-    sub.add_parser("config-validate", help="Validate configuration file")
+    p_config = sub.add_parser("config-validate", help="Validate configuration file")
+    p_config.add_argument("--config", default="config.yaml", help="Path to config file")
     sub.add_parser("info", help="Print system information")
 
     p_gen = sub.add_parser("generate", help="Generate code from a prompt")
     p_gen.add_argument("--prompt", type=str, help="Prompt text (or pipe to stdin)")
-    p_gen.add_argument("--checkpoint", type=str, default="models/fable5", help="Model checkpoint path")
+    p_gen.add_argument("--checkpoint", type=str, default="models/methos", help="Model checkpoint path")
     p_gen.add_argument("--tokenizer", type=str, default="models/tokenizer", help="Tokenizer path")
+    p_gen.add_argument("--config", default="config.yaml", help="Path to config file")
     p_gen.add_argument("--max-new-tokens", type=int, default=1024)
     p_gen.add_argument("--temperature", type=float, default=0.7)
     p_gen.add_argument("--top-k", type=int, default=40)
@@ -217,8 +219,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_dl.add_argument("--force", action="store_true", help="Overwrite existing tokenizer")
 
     p_bench = sub.add_parser("benchmark", help="Run coding benchmarks")
-    p_bench.add_argument("--checkpoint", type=str, default="models/fable5", help="Model checkpoint path")
+    p_bench.add_argument("--checkpoint", type=str, default="models/methos", help="Model checkpoint path")
     p_bench.add_argument("--tokenizer", type=str, default="models/tokenizer", help="Tokenizer path")
+    p_bench.add_argument("--config", default="config.yaml", help="Path to config file")
     p_bench.add_argument("--benchmarks", type=str, default="human_eval,mbpp", help="Comma-separated benchmark names")
 
     return parser

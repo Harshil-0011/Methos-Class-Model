@@ -100,7 +100,7 @@ echo "def fibonacci(n):" | python main.py generate
 
 python main.py generate \
   --prompt "Write a Rust HTTP server" \
-  --checkpoint models/fable5/sft \
+  --checkpoint models/methos/sft \
   --max-new-tokens 2048 \
   --temperature 0.8 \
   --top-p 0.95
@@ -120,7 +120,7 @@ python -m pytest tests/ --cov=src            # coverage
 ```bash
 python main.py benchmark                                          # all
 python main.py benchmark --benchmarks "human_eval,mbpp"           # specific
-python main.py benchmark --checkpoint models/fable5/best          # custom checkpoint
+python main.py benchmark --checkpoint models/methos/best          # custom checkpoint
 ```
 
 ### Tokenizer
@@ -223,7 +223,7 @@ tests/test_validation.py          # 10 — Python syntax + execution
 | CUDA OOM | Reduce `batch_size`, lower `max_seq_length`, enable `expandable_segments` |
 | NCCL errors | Set `NCCL_DEBUG=WARN`, `NCCL_NVLS_ENABLE=0`, `CUDA_DEVICE_MAX_CONNECTIONS=1` |
 | "Tokenizer not found" | Run `python main.py download-tokenizer` |
-| Architecture mismatch | `rm -rf models/fable5/checkpoints; bash scripts/train_4gpu.sh --fresh-start` |
+| Architecture mismatch | `rm -rf models/methos/checkpoints; bash scripts/train_4gpu.sh --fresh-start` |
 | "No module named 'src'" | Run from the project root directory |
 | Training hangs at init | Check GPUs with `nvidia-smi`, kill stale `torchrun` processes |
 

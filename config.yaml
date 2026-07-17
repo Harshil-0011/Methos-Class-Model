@@ -401,13 +401,13 @@ tokenizer:
 
 # ── Output & Logging ────────────────────────────────────────────────────────
 output:
-  model_dir: ./models/fable5
+  model_dir: ./models/methos
   data_dir: ./data
-  checkpoint_dir: ./models/fable5/checkpoints
+  checkpoint_dir: ./models/methos/checkpoints
   log_dir: ./logs
   experiment_tracking:
     enabled: false
     provider: none
-    project: fable-5
+    project: methos-class-model
 
 
