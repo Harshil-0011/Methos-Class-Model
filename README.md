@@ -1,7 +1,7 @@
-# NSLT-Zero
+# Methos Class Model
 
 Train a custom code-focused LLM from scratch on **4× A100 80GB** using the
-**Neural-State Liquid Transformer** — a non-Transformer architecture with
+**Methos Class Model** — an NSLT-derived architecture with
 **O(1) memory** w.r.t. sequence length.
 
 <p align="center">
@@ -29,16 +29,16 @@ and saves checkpoints every 1,000 steps.
 
 ---
 
-## What is NSLT?
+## What is the Methos Class Model?
 
-A **non-Transformer** LLM that replaces self-attention with four custom layers:
+A **non-Transformer** LLM derived from the NSLT architecture that replaces self-attention with four custom layers:
 
 ```
 Tokens → [SSM Compression] → [LTC Routing] → [Latent Sandbox] → [Sparse Output] → Next Token
            O(1) memory        Neural ODE        K reasoning paths   1% vocab gating
 ```
 
-| Transformer | NSLT |
+| Transformer | Methos Class Model |
 |---|---|
 | O(T²) attention or O(T·d_kv) KV-cache | **O(1)** compressed state — fixed size, any length |
 | Long context needs tricks (YaRN, ALiBi) | Native O(1) — state size independent of T |
@@ -141,7 +141,7 @@ python main.py download-tokenizer --force
 ├── config.yaml                 # Training configuration
 ├── scripts/train_4gpu.sh       # 4-GPU torchrun launcher
 ├── src/
-│   ├── nslt/                   # NSLT architecture (pure PyTorch)
+│   ├── nslt/                   # Methos Class Model architecture (pure PyTorch)
 │   │   ├── model.py            # NSLTModel (~694 lines)
 │   │   ├── layer1_ssm.py       # SSM compression engine
 │   │   ├── layer2_ltc.py       # Neural ODE routing

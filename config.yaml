@@ -1,10 +1,10 @@
 # =============================================================================
-# NSLT Configuration — Neural-State Liquid Transformer
+# Methos Class Model Configuration — Neural-State Liquid Transformer
 # Replaces dense transformers with O(1) SSM compression + liquid ODE routing
 # + parallel latent sandbox reasoning + ultra-sparse (1%) output.
 # =============================================================================
 project:
-  name: NSLT-Zero
+  name: Methos Class Model
   seed: 42
   deterministic: true
 
@@ -15,7 +15,7 @@ project:
 # Layer 3: Latent Sandbox (energy-based parallel vector reasoning)
 # Layer 4: Ultra-Sparse Output Synthesizer (top-1% vocabulary gating)
 model:
-  name: NSLT-Zero
+  name: Methos Class Model
   dtype: bfloat16
   device: auto
   train_from_scratch: true

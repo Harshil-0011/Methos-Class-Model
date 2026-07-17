@@ -186,7 +186,7 @@ def cmd_benchmark(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="zmodel", description="NSLT-Zero - Neural-State Liquid Transformer")
+    parser = argparse.ArgumentParser(prog="zmodel", description="Methos Class Model - Neural-State Liquid Transformer")
     parser.add_argument("--config", default="config.yaml")
 
     sub = parser.add_subparsers(dest="command", required=True)

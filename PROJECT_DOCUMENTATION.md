@@ -1,4 +1,4 @@
-# NSLT-Zero — Agent Reference
+# Methos Class Model — Agent Reference
 
 > **Purpose:** This document is the single source of truth for AI agents working on this codebase.
 > Every config field, CLI flag, architecture detail, data flow, error state, and edge case is
@@ -105,11 +105,11 @@ that migrates v1 config keys to v2:
 ```yaml
 # ── Top-Level ──
 project:
-  name: NSLT-Zero                    # str — Project name for logging
+  name: Methos Class Model           # str — Project name for logging
   seed: 42                           # int — Random seed (set_seed() called in pipeline init)
 
 model:
-  name: NSLT-Zero                    # str — Display name
+  name: Methos Class Model           # str — Display name
   dtype: bfloat16                    # "bfloat16" | "float16" | "float32"
   device: auto                       # "auto" → resolved to "cuda" or "cpu" at runtime
   train_from_scratch: true           # bool — If false, would try pretrained (not implemented for NSLT)
